@@ -17,8 +17,41 @@ An Android voice assistant built with Kotlin, Gemini Live, on-device voice compo
 2. Set the Android SDK path in your local `local.properties` file. The file is machine-specific and is ignored by Git.
 3. Launch the app on an Android 8.0+ device or emulator.
 4. Add a Gemini API key in the app's Settings and grant the requested runtime permissions.
+5. Optionally open Settings → AI Provider to pick a different reasoning provider (see below).
 
 The Gradle wrapper is included in this project. Use `gradlew.bat` on Windows or `./gradlew` on macOS/Linux.
+
+## Choosing an AI provider
+
+Gemini Live always drives the realtime voice conversation, because it is the only
+provider here with bidirectional audio streaming. Everything that requires *thinking* —
+reading the screen, deciding what to tap, and reading an image — can run on any
+OpenAI-compatible endpoint.
+
+Open Settings → AI Provider to choose from:
+
+| Provider | Notes |
+|---|---|
+| Google Gemini | Default. Also provides live voice. |
+| Groq Cloud | Fast hosted inference. |
+| Ollama Cloud | Hosted Ollama models. |
+| OpenAI | OpenAI's own API. |
+| OpenRouter | Many models behind one endpoint. |
+| Custom | Any OpenAI-compatible server; set your own base URL. |
+
+Press **Load Models** to fetch the model list from the provider's live `/models`
+endpoint, then pick a model. Keys and base URLs are stored per provider, so you can
+switch between them without re-entering anything.
+
+### How vision is decided
+
+A model is only allowed to see the screen after it passes a real test. The app sends
+one bundled image containing three checkable facts (a shape, a word, and a count) and
+requires at least two to be read back correctly. Capability is never guessed from a
+model's name: Groq, Ollama and most `/models` responses advertise no vision metadata,
+and names like "…-vl" are wrong often enough to matter. If a model has not passed the
+test, the agent still works — it just uses the accessibility tree alone, and it is told
+that no screenshot is available so it does not invent what it cannot see.
 
 ## Build commands
 
