@@ -62,6 +62,21 @@ manual dispatch. It reads signing inputs from repository **secrets**, never from
 keystore itself, so the pin cannot drift out of sync with the signing key. Copy
 `.env.example` to `.env` for local values; `.env` is gitignored.
 
+Release signing material lives **outside** the repo, at
+`/workspace/jarvis-release-keystore/release.jks` (alias `jarvis`, 4096-bit RSA,
+validity 10000 days). The same key is stored as repository secrets, so the workflow
+still signs if this workspace is wiped. The signing certificate is:
+
+```
+CN=JARVIS Voice Assistant, OU=Release, O=CoworkLab, L=Unknown, ST=Unknown, C=US
+SHA-256: B1E076F6636C831600BF34B45C1EA40AB268AE371EF5613CA9BD00FAE6EEAFE7
+SHA-1:   93E14EF6DC9DF38B79603F70FCDE7DEEA1DEE217
+```
+
+That SHA-256 is the pin compiled into `BuildConfig.PINNED_RELEASE_CERT_SHA256`. It is a
+self-signed development key, not a Play Store upload key: replace it with a properly
+custodied key before shipping to users, and note that changing it changes app identity.
+
 ## Architecture
 
 Data flow: mic → `AudioRecorder` → `JarvisConversationService` → `GeminiLiveWebSocket`
