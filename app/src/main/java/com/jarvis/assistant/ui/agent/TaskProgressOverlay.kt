@@ -24,6 +24,7 @@ import com.jarvis.assistant.JarvisApp
 import android.view.ViewGroup
 import com.jarvis.assistant.automation.agent.AgentTaskSnapshot
 import com.jarvis.assistant.automation.agent.TaskStepStatus
+import java.util.Locale
 
 /** Small task HUD owned by the foreground conversation service. */
 class TaskProgressOverlay(private val context: Context) {
@@ -103,6 +104,68 @@ class TaskProgressOverlay(private val context: Context) {
     private var dragging = false
     private var lastTapAt = 0L
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    /** Set while the agent itself is moving the avatar, so drag state stays consistent. */
+    private var agentMoveGeneration = 0
+
+    /**
+     * Moves the avatar on behalf of the agent.
+     *
+     * Accepts either a named region ("top-left", "center", "bottom-right") or an
+     * explicit pixel position, and persists the result so the placement survives a
+     * restart. The avatar is the agent's own cursor on screen, so it is allowed to
+     * move it out of the way of whatever it is about to read or tap.
+     */
+    fun moveAvatar(region: String?, x: Int?, y: Int?): Boolean {
+        if (!attached) return false
+        val metrics = context.resources.displayMetrics
+        val w = root.width.takeIf { it > 0 } ?: params.width
+        val h = root.height.takeIf { it > 0 } ?: params.height
+
+        val targetX: Int
+        val targetY: Int
+        if (x != null && y != null) {
+            targetX = x
+            targetY = y
+        } else {
+            val key = region?.trim()?.lowercase(Locale.ROOT)?.replace('_', '-')?.replace(' ', '-')
+                ?: return false
+            val margin = dp(24)
+            val vertical = when {
+                key.startsWith("top") -> margin
+                key.startsWith("bottom") -> metrics.heightPixels - h - margin
+                else -> (metrics.heightPixels - h) / 2
+            }
+            val horizontal = when {
+                key.endsWith("left") -> margin
+                key.endsWith("right") -> metrics.widthPixels - w - margin
+                else -> (metrics.widthPixels - w) / 2
+            }
+            targetX = horizontal
+            targetY = vertical
+        }
+
+        params.gravity = Gravity.TOP or Gravity.LEFT
+        params.x = targetX
+        params.y = targetY
+        clampPosition()
+        try { windowManager.updateViewLayout(root, params) } catch (_: Exception) { return false }
+
+        val preferences = JarvisApp.instance.preferences
+        preferences.taskOverlayFreePosition = true
+        preferences.taskOverlayX = params.x
+        preferences.taskOverlayY = params.y
+        agentMoveGeneration++
+        return true
+    }
+
+    /** Reports where the avatar currently sits, for the agent's own bookkeeping. */
+    fun currentAvatarPosition(): Triple<Int, Int, Int>? {
+        if (!attached) return null
+        val metrics = context.resources.displayMetrics
+        val w = root.width.takeIf { it > 0 } ?: params.width
+        val h = root.height.takeIf { it > 0 } ?: params.height
+        return Triple(params.x, params.y, metrics.widthPixels)
+    }
 
     init {
         pill.visibility = View.GONE

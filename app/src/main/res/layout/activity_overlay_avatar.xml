@@ -36,7 +36,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Overlay Avatars"
+                android:text="Floating Avatar"
                 android:textColor="?attr/themeTextPrimary"
                 android:textSize="20sp"
                 android:fontFamily="sans-serif-medium"
@@ -45,7 +45,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Pick the companion shown while Jarvis works"
+                android:text="The ghost companion the agent moves around the screen"
                 android:textColor="?attr/themeTextMuted"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -70,7 +70,7 @@
             android:minHeight="64dp"
             android:paddingStart="18dp"
             android:paddingEnd="18dp"
-            android:text="Show floating overlay"
+            android:text="Show floating avatar"
             android:textColor="?attr/themeTextPrimary"
             android:textSize="15sp" />
     </com.google.android.material.card.MaterialCardView>
@@ -128,48 +128,50 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Dock the avatar to an edge; dragging it will choose the nearest edge."
+                android:text="Drag the avatar anywhere to place it. Double-tap it to expand task progress. The agent can also move it on its own while working."
                 android:textColor="?attr/themeTextMuted"
-                android:textSize="11sp" />
-
-            <Spinner
-                android:id="@+id/spinnerOverlayEdge"
-                android:layout_width="match_parent"
-                android:layout_height="44dp"
-                android:entries="@array/overlay_edges"
-                android:spinnerMode="dropdown" />
+                android:textSize="11sp"
+                android:layout_marginTop="4dp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <TextView
+    <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingStart="22dp"
-        android:paddingEnd="22dp"
-        android:paddingBottom="8dp"
-        android:text="CHOOSE AN AVATAR"
-        android:textColor="?attr/themeTextMuted"
-        android:textSize="11sp"
-        android:letterSpacing="0.08"
-        android:fontFamily="sans-serif-medium"
-        android:textStyle="bold" />
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        app:cardBackgroundColor="?attr/themeCardBg"
+        app:strokeColor="?attr/themeCardBorder"
+        app:strokeWidth="1dp"
+        app:cardCornerRadius="16dp">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingStart="22dp"
-        android:paddingEnd="22dp"
-        android:paddingBottom="10dp"
-        android:text="Tap an avatar to select it. Double-tap the floating avatar to see task progress."
-        android:textColor="?attr/themeTextMuted"
-        android:textSize="12sp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="14dp">
 
-    <WebView
-        android:id="@+id/avatarGallery"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Avatar"
+                android:textColor="?attr/themeTextPrimary"
+                android:textStyle="bold"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ghost"
+                android:textColor="?attr/themeAccent"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-medium"
+                android:layout_marginTop="6dp" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="@android:color/transparent"
-        android:overScrollMode="never"
-        android:scrollbars="none" />
+        android:layout_weight="1" />
 </LinearLayout>

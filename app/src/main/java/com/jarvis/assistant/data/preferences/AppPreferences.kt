@@ -9,6 +9,7 @@ import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.jarvis.assistant.data.model.ChatTurn
 import com.jarvis.assistant.data.model.GeminiConstants
+import com.jarvis.assistant.data.provider.AiProviderKind
 
 class AppPreferences(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -77,7 +78,92 @@ class AppPreferences(context: Context) {
         private const val KEY_ORB_SCALE = "key_orb_scale"
         private const val KEY_ORB_HUE = "key_orb_hue"
         private const val KEY_CUSTOM_ENDPOINT = "key_custom_endpoint"
+        private const val KEY_PROVIDER_ID = "key_provider_id"
+        private const val KEY_VISION_USER_ENABLED = "key_vision_user_enabled"
+        private const val KEY_PROVIDER_KEY_PREFIX = "key_provider_key_"
+        private const val KEY_PROVIDER_BASE_PREFIX = "key_provider_base_"
+        private const val KEY_PROVIDER_MODEL_PREFIX = "key_provider_model_"
+        private const val KEY_VISION_VERIFIED_PREFIX = "key_vision_verified_"
+
+        /** The only floating avatar the agent ships with. */
+        const val GHOST_AVATAR = "ghost"
     }
+
+    // --- Multi-provider configuration ---
+
+    /** The provider currently used as the reasoning brain. */
+    var providerId: String
+        get() = prefs.getString(KEY_PROVIDER_ID, AiProviderKind.GEMINI.id)
+            ?: AiProviderKind.GEMINI.id
+        set(value) = prefs.edit().putString(KEY_PROVIDER_ID, AiProviderKind.fromId(value).id).apply()
+
+    /**
+     * Per-provider API key. Gemini delegates to [apiKey] so the live voice session
+     * and the reasoning brain always share one credential.
+     */
+    fun providerApiKey(kind: AiProviderKind): String =
+        if (kind == AiProviderKind.GEMINI) apiKey
+        else secureApiPrefs?.getString(KEY_PROVIDER_KEY_PREFIX + kind.id, "")?.trim() ?: ""
+
+    fun setProviderApiKey(kind: AiProviderKind, value: String) {
+        if (kind == AiProviderKind.GEMINI) {
+            apiKey = value
+            return
+        }
+        val secure = secureApiPrefs ?: throw IllegalStateException(
+            "Secure API-key storage is unavailable on this device."
+        )
+        val clean = value.trim()
+        val saved = if (clean.isEmpty()) secure.edit().remove(KEY_PROVIDER_KEY_PREFIX + kind.id).commit()
+        else secure.edit().putString(KEY_PROVIDER_KEY_PREFIX + kind.id, clean).commit()
+        check(saved) { "Could not save the API key to encrypted storage." }
+    }
+
+    fun providerBaseUrl(kind: AiProviderKind): String {
+        val stored = prefs.getString(KEY_PROVIDER_BASE_PREFIX + kind.id, null)
+        if (stored.isNullOrBlank()) return kind.defaultBaseUrl
+        return stored
+    }
+
+    fun setProviderBaseUrl(kind: AiProviderKind, value: String) {
+        prefs.edit().putString(KEY_PROVIDER_BASE_PREFIX + kind.id, value.trim()).apply()
+    }
+
+    fun providerModel(kind: AiProviderKind): String =
+        prefs.getString(KEY_PROVIDER_MODEL_PREFIX + kind.id, "")?.trim() ?: ""
+
+    fun setProviderModel(kind: AiProviderKind, value: String) {
+        prefs.edit().putString(KEY_PROVIDER_MODEL_PREFIX + kind.id, value.trim()).apply()
+    }
+
+    /** User-facing master switch. Vision never runs while this is off. */
+    var isVisionUserEnabled: Boolean
+        get() = prefs.getBoolean(KEY_VISION_USER_ENABLED, true)
+        set(value) = prefs.edit().putBoolean(KEY_VISION_USER_ENABLED, value).apply()
+
+    /**
+     * Whether a specific model passed the real-image probe. Keyed per model so
+     * switching models re-requires verification instead of inheriting the result.
+     */
+    fun isVisionVerifiedFor(kind: AiProviderKind, model: String): Boolean {
+        if (model.isBlank()) return false
+        return prefs.getBoolean(visionKey(kind, model), false)
+    }
+
+    fun setVisionVerifiedFor(kind: AiProviderKind, model: String, verified: Boolean) {
+        if (model.isBlank()) return
+        prefs.edit().putBoolean(visionKey(kind, model), verified).apply()
+    }
+
+    private fun visionKey(kind: AiProviderKind, model: String): String =
+        KEY_VISION_VERIFIED_PREFIX + kind.id + "_" + model.replace('/', '_')
+
+    /**
+     * Vision is only usable when the user has allowed it AND this exact model
+     * proved it can read an image. Any other combination means accessibility-only.
+     */
+    fun canUseVisionNow(kind: AiProviderKind, model: String): Boolean =
+        isVisionUserEnabled && isVisionVerifiedFor(kind, model)
 
     var isOwnerVoiceEnabled: Boolean
         get() = prefs.getBoolean(KEY_OWNER_VOICE_ENABLED, false)
@@ -335,11 +421,14 @@ class AppPreferences(context: Context) {
         get() = prefs.getBoolean(KEY_TASK_OVERLAY_ENABLED, true)
         set(value) = prefs.edit().putBoolean(KEY_TASK_OVERLAY_ENABLED, value).apply()
 
+    /**
+     * The floating companion. Only the ghost ships with the app; the property is
+     * kept so an existing profile that stored another name still resolves.
+     */
     var taskOverlayAvatar: String
-        get() = prefs.getString(KEY_TASK_OVERLAY_AVATAR, "ghost") ?: "ghost"
+        get() = GHOST_AVATAR
         set(value) {
-            val available = listOf("alien", "blob", "cat", "circle", "cloud", "droid", "drop", "flower", "ghost", "hexagon", "mech", "pebble", "pill", "puddle", "square", "star", "triangle")
-            prefs.edit().putString(KEY_TASK_OVERLAY_AVATAR, value.takeIf { it in available } ?: "ghost").apply()
+            prefs.edit().putString(KEY_TASK_OVERLAY_AVATAR, GHOST_AVATAR).apply()
         }
 
     /** always keeps the avatar visible while the service is alive; working limits it to active tasks. */

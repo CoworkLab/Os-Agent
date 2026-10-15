@@ -112,6 +112,18 @@ class SettingsFragment : Fragment() {
         val modelDisplay = preferences.aiModel.removePrefix("models/")
         binding.tvCurrentModel.text = "$modelDisplay • Live WebSocket"
 
+        // Reasoning provider + vision state
+        val activeKind = com.jarvis.assistant.data.provider.AiProviderKind.fromId(preferences.providerId)
+        val activeModel = preferences.providerModel(activeKind)
+        binding.tvCurrentProvider.text = buildString {
+            append(activeKind.displayName)
+            if (activeModel.isNotBlank()) append(" • ").append(activeModel.removePrefix("models/"))
+            append(
+                if (preferences.canUseVisionNow(activeKind, activeModel)) " • vision on"
+                else " • accessibility only"
+            )
+        }
+
         // Theme
         binding.tvCurrentTheme.text = when (preferences.appTheme) {
             "dark" -> "Dark Theme"
@@ -167,6 +179,10 @@ class SettingsFragment : Fragment() {
 
         binding.rowOverlayAvatars.setOnClickListener {
             startActivity(Intent(requireContext(), OverlayAvatarActivity::class.java))
+        }
+
+        binding.rowProviderSettings.setOnClickListener {
+            startActivity(Intent(requireContext(), ProviderSettingsActivity::class.java))
         }
 
         binding.rowApplications.setOnClickListener {

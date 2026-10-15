@@ -13,6 +13,11 @@ import com.jarvis.assistant.data.memory.MemoryManager
 import com.jarvis.assistant.data.memory.MemoryRepository
 import com.jarvis.assistant.data.preferences.AppPreferences
 import com.jarvis.assistant.data.preferences.YouTubePreferences
+import com.jarvis.assistant.data.provider.AiProviderClient
+import com.jarvis.assistant.data.provider.AiProviderKind
+import com.jarvis.assistant.data.provider.GeminiRestClient
+import com.jarvis.assistant.data.provider.OpenAiCompatibleClient
+import com.jarvis.assistant.data.provider.ProviderConfig
 import com.jarvis.assistant.data.repository.ChatRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -57,6 +62,34 @@ class JarvisApp : Application() {
 
     lateinit var commandExecutor: CommandExecutor
         private set
+
+    // --- Multi-provider brain ---
+
+    /** Cached clients; each is stateless and safe to reuse across providers. */
+    private val providerClients = mutableMapOf<AiProviderKind, AiProviderClient>()
+
+    val activeProviderKind: AiProviderKind
+        get() = AiProviderKind.fromId(preferences.providerId)
+
+    /** Client for the currently selected reasoning provider. */
+    fun activeProviderClient(): AiProviderClient = clientFor(activeProviderKind)
+
+    fun clientFor(kind: AiProviderKind): AiProviderClient = providerClients.getOrPut(kind) {
+        if (kind == AiProviderKind.GEMINI) GeminiRestClient(kind)
+        else OpenAiCompatibleClient(kind)
+    }
+
+    /** Resolved connection settings for the active provider. */
+    fun activeProviderConfig(): ProviderConfig {
+        val kind = activeProviderKind
+        return ProviderConfig(
+            kind = kind,
+            baseUrl = preferences.providerBaseUrl(kind),
+            apiKey = preferences.providerApiKey(kind),
+            model = preferences.providerModel(kind),
+            visionUsable = preferences.canUseVisionNow(kind, preferences.providerModel(kind))
+        )
+    }
 
     override fun onCreate() {
         super.onCreate()
