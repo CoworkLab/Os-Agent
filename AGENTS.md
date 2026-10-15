@@ -46,9 +46,21 @@ properties. This is enforced by the `verifyReleaseSecurityInputs` task. Never co
 keystores or credentials.
 
 `local.properties` is machine-local (start from `local.properties.example`) and is
-gitignored. `.github/workflows/android-ci.yml` compiles the debug sources and runs the
-unit tests on every push to `main` and every pull request; it generates
-`local.properties` from `ANDROID_SDK_ROOT` because that file is not committed.
+gitignored.
+
+## CI and release automation
+
+`.github/workflows/android-ci.yml` compiles the debug sources and runs the unit tests on
+every push to `main` and every pull request. It generates `local.properties` from
+`ANDROID_SDK_ROOT` because that file is not committed.
+
+`.github/workflows/android-release.yml` builds a signed release APK on a `v*` tag or on
+manual dispatch. It reads signing inputs from repository **secrets**, never from the repo:
+`JARVIS_KEYSTORE_BASE64` (base64 of the `.jks`), `JARVIS_KEYSTORE_PASSWORD`,
+`JARVIS_KEY_ALIAS`, `JARVIS_KEY_PASSWORD`, and optionally `JARVIS_DEVELOPER_NAME` /
+`JARVIS_COPYRIGHT_OWNER`. The workflow derives `JARVIS_RELEASE_CERT_SHA256` from the
+keystore itself, so the pin cannot drift out of sync with the signing key. Copy
+`.env.example` to `.env` for local values; `.env` is gitignored.
 
 ## Architecture
 
