@@ -11,7 +11,6 @@ import com.jarvis.assistant.data.provider.ProviderResult
 import com.jarvis.assistant.vision.ScreenCaptureManager
 import com.jarvis.assistant.vision.UiElementInfo
 import com.jarvis.assistant.vision.UiGroundingEngine
-import org.json.JSONArray
 import org.json.JSONObject
 import java.util.Locale
 
