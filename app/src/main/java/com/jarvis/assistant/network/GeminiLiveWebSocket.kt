@@ -633,6 +633,26 @@ class GeminiLiveWebSocket(
                             })
                         })
 
+                        // 21. agent_act — the human-like look/think/act/verify turn
+                        put(JSONObject().apply {
+                            put("name", "agent_act")
+                            put("description", "Takes one human-like step on the phone: looks at the current screen (accessibility tree plus a real screenshot when the selected model passed the vision test), decides a single next action, performs it, and verifies it. Use this for hands-on work: tapping through apps, filling forms, navigating settings, or anything where you must actually operate the screen. Call it repeatedly, one step at a time, until the goal is done. The result tells you honestly whether the step took effect, so never claim success when success is false.")
+                            put("parameters", JSONObject().apply {
+                                put("type", "OBJECT")
+                                put("properties", JSONObject().apply {
+                                    put("goal", JSONObject().apply {
+                                        put("type", "STRING")
+                                        put("description", "The concrete goal for this step, e.g. 'Open Settings and turn on Wi-Fi'. Keep it identical across steps of the same task so progress is remembered.")
+                                    })
+                                    put("allow_vision", JSONObject().apply {
+                                        put("type", "BOOLEAN")
+                                        put("description", "Whether the model may look at a screenshot as well as the accessibility tree. Defaults to true. Vision is used only when the selected model has passed the real-image test.")
+                                    })
+                                })
+                                put("required", JSONArray().put("goal"))
+                            })
+                        })
+
                         // 21. inspect_screen
                         put(JSONObject().apply {
                             put("name", "inspect_screen")

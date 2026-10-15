@@ -22,7 +22,13 @@ data class UiElementInfo(
     val isCheckable: Boolean,
     val isChecked: Boolean,
     val isEditable: Boolean,
-    val isScrollable: Boolean
+    val isScrollable: Boolean,
+    /**
+     * The live node this element was read from, used to act on exactly what was
+     * observed instead of re-finding it by name and risking a different match.
+     * Transient: excluded from equality, and only valid while the tree is unchanged.
+     */
+    val node: AccessibilityNodeInfo? = null
 ) {
     val center: PointF
         get() = PointF(bounds.exactCenterX(), bounds.exactCenterY())
@@ -150,7 +156,8 @@ class UiGroundingEngine {
                         isCheckable = isCheckable,
                         isChecked = node.isChecked,
                         isEditable = isEditable,
-                        isScrollable = isScrollable
+                        isScrollable = isScrollable,
+                        node = node
                     )
                 )
             }

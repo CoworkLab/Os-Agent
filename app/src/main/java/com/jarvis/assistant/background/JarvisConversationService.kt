@@ -99,6 +99,14 @@ class JarvisConversationService : Service() {
 
         @Volatile private var activeInstance: JarvisConversationService? = null
 
+        /**
+         * The floating avatar, exposed so the agent can move it out of the way of
+         * whatever it is about to read or tap. Null while the service is not running
+         * or the user has switched the avatar off.
+         */
+        val taskOverlay: com.jarvis.assistant.ui.agent.TaskProgressOverlay?
+            get() = activeInstance?.taskProgressOverlay
+
         private val _isSessionOn = MutableStateFlow(false)
         val isSessionOn: StateFlow<Boolean> = _isSessionOn.asStateFlow()
 
@@ -232,6 +240,13 @@ class JarvisConversationService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var taskProgressOverlay: com.jarvis.assistant.ui.agent.TaskProgressOverlay? = null
     private var taskProgressOverlayJob: Job? = null
+
+    /**
+     * The live look-think-act-verify session for the current goal, created lazily
+     * the first time the model asks for hands-on screen control. Kept here so the
+     * history of what was already tried survives across tool calls within one goal.
+     */
+    private var agentSession: com.jarvis.assistant.automation.agent.AgentSession? = null
     private var overlayPermissionWarningTaskId: String? = null
     private val preferences by lazy { (applicationContext as JarvisApp).preferences }
 
@@ -1618,7 +1633,7 @@ class JarvisConversationService : Service() {
 
                 val isAutomationTool = name in setOf(
                     "open_app", "open_website", "search_in_chrome",
-                    "click_ui_element", "type_text", "scroll_screen", "press_key"
+                    "click_ui_element", "type_text", "scroll_screen", "press_key", "agent_act"
                 )
                 if (isAutomationTool && autonomousHardStop) {
                     Log.w("JarvisService", "Automation tool '$name' refused: hard stop is active.")
@@ -2269,6 +2284,7 @@ class JarvisConversationService : Service() {
                             flowPromptVerified = false
                             flowGenerationVerified = false
                             lastVerifiedFlowPrompt = ""
+                            agentSession = null
                             autonomousLoopJob?.cancel()
                             autonomousLoopJob = null
                             result.put("success", engineCompleted)
@@ -2292,6 +2308,64 @@ class JarvisConversationService : Service() {
                                 }
                             }
                         }
+                        }
+                    }
+
+                    "agent_act" -> {
+                        val goal = args.optString("goal", "").ifBlank { autonomousTaskGoal }
+                        val allowVision = args.optBoolean("allow_vision", true)
+                        val accessibility = com.jarvis.assistant.automation.accessibility.JarvisAccessibilityService.instance
+                        val providerReady = (application as JarvisApp).activeProviderConfig().isReady
+                        // A new goal starts a fresh history; continuing the same goal keeps
+                        // it, so the model still remembers what it already tried.
+                        val session = if (providerReady && accessibility != null && goal.isNotBlank()) {
+                            agentSession?.takeIf { it.goal == goal }
+                                ?: com.jarvis.assistant.automation.agent.AgentSession(accessibility, goal)
+                                    .also { agentSession = it }
+                        } else {
+                            null
+                        }
+                        if (session == null) {
+                            result.put("success", false)
+                            result.put("verified", false)
+                            result.put(
+                                "message",
+                                if (!providerReady) {
+                                    "No reasoning provider is ready. Open Settings, choose a provider, press Load Models, pick a model, and save before asking for hands-on screen control."
+                                } else {
+                                    "The accessibility service is not running, so the screen cannot be read or touched. Ask the user to enable JARVIS accessibility."
+                                }
+                            )
+                        } else if (goal.isBlank()) {
+                            result.put("success", false)
+                            result.put("verified", false)
+                            result.put("message", "No goal was given for the hands-on turn.")
+                        } else {
+                            val turn = session.step(goal, allowVision)
+                            if (turn == null) {
+                                result.put("success", false)
+                                result.put("verified", false)
+                                result.put("turns_used", session.turns)
+                                result.put(
+                                    "message",
+                                    "No further hands-on step was taken: the goal was reported complete, the turn limit was reached, or the same action kept failing on an unchanged screen. Report honestly what was and was not achieved."
+                                )
+                            } else {
+                                result.put("success", turn.performed)
+                                result.put("verified", turn.verified)
+                                result.put("action", turn.action.kind)
+                                result.put("action_reason", turn.action.reason)
+                                result.put("outcome", turn.detail)
+                                result.put("vision_used", turn.observation.visionUsed)
+                                turn.observation.visionSkipReason?.let { result.put("vision_note", it) }
+                                result.put("screen_summary", turn.observation.elementsSummary)
+                                if (!turn.performed) {
+                                    result.put(
+                                        "message",
+                                        "The action was attempted but did not take effect: ${turn.detail} Do not claim it succeeded; choose a different approach."
+                                    )
+                                }
+                            }
                         }
                     }
 
@@ -2556,6 +2630,7 @@ class JarvisConversationService : Service() {
             activeToolJobs.forEach { it.cancel() }
             activeToolJob?.cancel()
             isAutonomousTaskRunning = false
+            agentSession = null
             lastHandledCommandText = cleanSpeech
             announce("Okay, I stopped the current task.")
             return
